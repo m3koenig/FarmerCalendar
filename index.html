@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stardew Valley Kalender-Editor v1.5.4</title>
+  <title>Stardew Valley Kalender-Editor v1.5.5</title>
   
   <meta name="theme-color" content="#30160b">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -314,6 +314,11 @@
         showToast('JSON exportiert!');
       };
 
+      const handleCopyJSON = () => {
+        navigator.clipboard.writeText(JSON.stringify(calendarData));
+        showToast('JSON in Zwischenablage kopiert!');
+      };
+
       const handleCopyShare = () => {
         const shareUrl = window.location.origin + window.location.pathname + '?seed=' + btoa(JSON.stringify(calendarData));
         navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert!'));
@@ -356,6 +361,7 @@
                  <h2 className="text-3xl font-bold mb-4 text-[#fcf1d8]">Import / Export / Teilen</h2>
                  <div className="space-y-4 bg-[#fcf1d8] p-4 rounded border-2 border-[#431d11]">
                     <button onClick={handleDownloadJSON} className="w-full bg-[#9ccc65] p-2 rounded border-2 border-[#431d11] font-bold">JSON Datei Exportieren</button>
+                    <button onClick={handleCopyJSON} className="w-full bg-[#9ccc65] p-2 rounded border-2 border-[#431d11] font-bold">JSON in Zwischenablage kopieren</button>
                     <button onClick={handleCopyShare} className="w-full bg-[#e4a558] p-2 rounded border-2 border-[#431d11] font-bold">Link zum Teilen kopieren</button>
                     <hr className="border-[#431d11]" />
                     <textarea value={importData} onChange={(e) => setImportData(e.target.value)} className="w-full h-32 bg-[#f7e5c8] border-2 border-[#431d11] p-2" placeholder="Hier JSON einfügen..."></textarea>
@@ -587,20 +593,13 @@
 =========================================
 CHANGELOG:
 ...
-v1.5.2 (Export-Fokus & Typografie-Update):
-- Export-Fokus: Nur noch Kalender-Board wird exportiert, GUI entfernt.
-- Typografie-Update: Tageszahlen und Jahreszeiten-Titel um 100% vergrößert.
-- Clipping: Überlauf-Verhalten in Kalenderkacheln strikt beibehalten.
-
-v1.5.3 (Korrektur & Details):
-- Skalierung: Tageszahlen und Überschrift um 40% verkleinert für besseres Layout.
-- Design: "Nagel" oben in der Mitte hinzugefügt.
-- Export-Alignment: Fehler bei der vertikalen Ausrichtung behoben.
-
 v1.5.4 (Import, Export & Teilen):
 - Import/Export-System via JSON-Dateien & Zwischenablage hinzugefügt.
 - "Teilen"-Feature über URL-Parameter (Seed) hinzugefügt.
 - Nagel-Design als Top-Down-Ansicht (Rund) optimiert.
 - Export-Layout fixiert (Verrutschen behoben).
+
+v1.5.5 (Zwischenablage für JSON):
+- Button "JSON in Zwischenablage kopieren" im Import/Export-Modal hinzugefügt.
 =========================================
 -->
