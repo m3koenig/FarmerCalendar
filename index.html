@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stardew Valley Kalender-Editor</title>
+  <title>Stardew Valley Kalender-Editor v1.5.4</title>
   
   <meta name="theme-color" content="#30160b">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -60,6 +60,17 @@
 
     function App() {
       const [calendarData, setCalendarData] = useState(() => {
+        // Support für URL-Sharing (Import)
+        const params = new URLSearchParams(window.location.search);
+        const seed = params.get('seed');
+        if (seed) {
+          try {
+            return JSON.parse(atob(seed));
+          } catch (e) {
+            console.error("Fehler beim Laden des Seeds:", e);
+          }
+        }
+        
         const savedData = localStorage.getItem('stardew_calendar_data');
         if (savedData) {
           try {
@@ -76,6 +87,7 @@
       const [toastMessage, setToastMessage] = useState('');
       const [isMuted, setIsMuted] = useState(false);
       const [isEditorOpen, setIsEditorOpen] = useState(false);
+      const [isModalOpen, setIsModalOpen] = useState(false); // Für Import/Export/Teilen
       
       const [eventType, setEventType] = useState('none');
       const [eventTitle, setEventTitle] = useState('');
@@ -87,6 +99,8 @@
       const [eventScale, setEventScale] = useState(1);
       const [eventOffsetX, setEventOffsetX] = useState(0);
       const [eventOffsetY, setEventOffsetY] = useState(0);
+
+      const [importData, setImportData] = useState('');
 
       const calendarRef = useRef(null);
 
@@ -250,31 +264,35 @@
       const handleSaveEvent = () => {
         playSound('save');
         setIsEditorOpen(false);
-        showToast(`Tag ${selectedDay} erfolgreich gespeichert!`);
+        showToast(`Tag ${selectedDay} gespeichert!`);
       };
 
       const handleExport = () => {
         if (!window.html2canvas) {
-          showToast('Export-Modul lädt noch, bitte gleich noch einmal versuchen.');
+          showToast('Export-Modul lädt noch...');
           return;
         }
 
         playSound('save');
+        window.scrollTo(0,0);
         const element = calendarRef.current;
         
-        window.html2canvas(element, {
-          backgroundColor: '#111827',
-          scale: 2, 
-          useCORS: true
-        }).then((canvas) => {
-          const link = document.createElement('a');
-          link.download = `stardew-kalender-${currentSeason.toLowerCase()}.png`;
-          link.href = canvas.toDataURL('image/png');
-          link.click();
-          showToast('Kalenderbild erfolgreich heruntergeladen!');
-        }).catch(() => {
-          showToast('Export failed. Versuche einen Screenshot zu machen.');
-        });
+        // Timeout gibt browser kurze zeit zum rendern ohne scroll offset
+        setTimeout(() => {
+          window.html2canvas(element, {
+            backgroundColor: '#b1723c',
+            scale: 2, 
+            useCORS: true
+          }).then((canvas) => {
+            const link = document.createElement('a');
+            link.download = `stardew-kalender-${currentSeason.toLowerCase()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            showToast('Kalender als Bild gespeichert!');
+          }).catch(() => {
+            showToast('Export fehlgeschlagen.');
+          });
+        }, 100);
       };
 
       const handleReset = () => {
@@ -283,6 +301,44 @@
         localStorage.removeItem('stardew_calendar_data');
         setSelectedDay(1);
         showToast('Kalender zurückgesetzt.');
+      };
+
+      // --- IMPORT / EXPORT / TEILEN ---
+      const handleDownloadJSON = () => {
+        const blob = new Blob([JSON.stringify(calendarData)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'stardew-kalender-config.json';
+        a.click();
+        showToast('JSON exportiert!');
+      };
+
+      const handleCopyShare = () => {
+        const shareUrl = window.location.origin + window.location.pathname + '?seed=' + btoa(JSON.stringify(calendarData));
+        navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert!'));
+      };
+
+      const handleImportJSON = () => {
+        try {
+          const parsed = JSON.parse(importData);
+          setCalendarData(parsed);
+          setIsModalOpen(false);
+          showToast('Daten importiert!');
+        } catch (e) {
+          showToast('Fehler bei JSON-Datei!');
+        }
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            setImportData(ev.target.result);
+          };
+          reader.readAsText(file);
+        }
       };
 
       return (
@@ -294,18 +350,30 @@
             </div>
           )}
 
-          {/* Modal / Overlay Editor */}
+          {isModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+              <div className="bg-[#b1723c] p-6 rounded-xl border-8 border-[#5c2e16] w-full max-w-lg shadow-2xl">
+                 <h2 className="text-3xl font-bold mb-4 text-[#fcf1d8]">Import / Export / Teilen</h2>
+                 <div className="space-y-4 bg-[#fcf1d8] p-4 rounded border-2 border-[#431d11]">
+                    <button onClick={handleDownloadJSON} className="w-full bg-[#9ccc65] p-2 rounded border-2 border-[#431d11] font-bold">JSON Datei Exportieren</button>
+                    <button onClick={handleCopyShare} className="w-full bg-[#e4a558] p-2 rounded border-2 border-[#431d11] font-bold">Link zum Teilen kopieren</button>
+                    <hr className="border-[#431d11]" />
+                    <textarea value={importData} onChange={(e) => setImportData(e.target.value)} className="w-full h-32 bg-[#f7e5c8] border-2 border-[#431d11] p-2" placeholder="Hier JSON einfügen..."></textarea>
+                    <input type="file" onChange={handleFileUpload} className="w-full text-lg" />
+                    <button onClick={handleImportJSON} className="w-full bg-blue-500 text-white p-2 rounded border-2 border-[#431d11] font-bold">Daten importieren</button>
+                 </div>
+                 <button onClick={() => setIsModalOpen(false)} className="mt-4 w-full bg-red-600 text-white p-2 rounded font-bold">Schließen</button>
+              </div>
+            </div>
+          )}
+
           {isEditorOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
               <div className="relative w-full max-w-lg bg-[#b1723c] rounded-xl border-8 border-[#5c2e16] shadow-2xl flex flex-col max-h-[90vh]">
-                
-                {/* Header (Sticky) */}
                 <div className="relative p-3 text-center border-b-4 border-[#5c2e16] bg-[#b1723c]">
                   <button onClick={() => { playSound('save'); setIsEditorOpen(false); }} className="absolute top-2 right-2 text-3xl font-bold bg-[#5c2e16] text-amber-100 px-3 py-1 rounded hover:bg-[#3a1b0b]">X</button>
                   <h2 className="text-3xl font-bold text-[#fcf1d8]">Tag {selectedDay} Bearbeiten</h2>
                 </div>
-
-                {/* Preview (Sticky) */}
                 <div className="bg-[#fcf1d8] border-b-4 border-[#431d11] p-3 flex justify-center items-center">
                   <div className="w-24 h-24 bg-[#fcf1d8] border-4 border-[#431d11] rounded relative flex items-center justify-center shadow-inner">
                     <span className="absolute top-1 left-2 text-xl font-bold text-[#8a4e28]">{selectedDay}</span>
@@ -317,13 +385,11 @@
                           transform: `rotate(${eventRotation}deg) scaleX(${eventFlip ? -1 : 1}) scale(${eventScale}) translate(${eventOffsetX}px, ${eventOffsetY}px)`
                         }}
                       >
-                         {eventType === 'birthday' && eventImage ? <img src={eventImage} className="w-full h-full object-cover" /> : <span className="text-xl">{eventIcon}</span>}
+                         {eventType !== 'none' && eventImage ? <img src={eventImage} className="w-full h-full object-cover" /> : <span className="text-xl">{eventIcon}</span>}
                       </div>
                     </div>
                   </div>
                 </div>
-
-                {/* Scrollable Content */}
                 <div className="overflow-y-auto flex-grow p-4 bg-[#fcf1d8]">
                   <div className="space-y-4 text-xl">
                     <div>
@@ -348,7 +414,6 @@
                             ))}
                           </div>
                         </div>
-
                         <div className="border-t-2 border-[#431d11] pt-3 space-y-3">
                           <label className="block font-bold mb-1">Transformation:</label>
                           <div className="flex gap-2 items-center">
@@ -361,23 +426,20 @@
                           </div>
                           <div className="space-y-1">
                             <label className="text-base font-bold">Verschiebung X: {eventOffsetX}px</label>
-                            <input type="range" min="-15" max="15" step="1" value={eventOffsetX} onChange={(e) => { const x = parseInt(e.target.value); setEventOffsetX(x); updateEventInCalendar({ offsetX: x }); }} className="w-full accent-[#431d11]" />
+                            <input type="range" min="-40" max="40" step="1" value={eventOffsetX} onChange={(e) => { const x = parseInt(e.target.value); setEventOffsetX(x); updateEventInCalendar({ offsetX: x }); }} className="w-full accent-[#431d11]" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-base font-bold">Verschiebung Y: {eventOffsetY}px</label>
-                            <input type="range" min="-15" max="15" step="1" value={eventOffsetY} onChange={(e) => { const y = parseInt(e.target.value); setEventOffsetY(y); updateEventInCalendar({ offsetY: y }); }} className="w-full accent-[#431d11]" />
+                            <input type="range" min="-40" max="40" step="1" value={eventOffsetY} onChange={(e) => { const y = parseInt(e.target.value); setEventOffsetY(y); updateEventInCalendar({ offsetY: y }); }} className="w-full accent-[#431d11]" />
                           </div>
                         </div>
-
-                        {eventType === 'birthday' && (
-                          <div className="border-t-2 border-[#431d11] pt-3">
-                            <label className="block font-bold mb-1">Portrait hochladen (Optional):</label>
+                        <div className="border-t-2 border-[#431d11] pt-3">
+                            <label className="block font-bold mb-1">Bild/Portrait (Optional):</label>
                             <div className="flex items-center gap-3">
                               <input type="file" accept="image/*" onChange={handleImageUpload} id="portrait-upload" className="hidden" />
                               <label htmlFor="portrait-upload" className="bg-[#f7e5c8] hover:bg-[#ebd5b1] border-2 border-[#431d11] px-3 py-1.5 rounded cursor-pointer font-bold text-center flex-grow text-lg">Datei auswählen</label>
                             </div>
-                          </div>
-                        )}
+                        </div>
                       </div>
                     )}
                     <div className="border-t-4 border-[#431d11] pt-4 mt-6">
@@ -428,6 +490,7 @@
                 })}
               </div>
               <div className="flex gap-2">
+                <button onClick={() => setIsModalOpen(true)} className="px-4 py-1.5 bg-[#e4a558] hover:bg-[#c18d53] text-[#431d11] rounded border-2 border-[#431d11] text-2xl cursor-pointer transition-all active:scale-95">Import/Export</button>
                 <button onClick={handleExport} className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded border-2 border-[#1a380f] text-2xl cursor-pointer transition-all transform active:scale-95">Bild Exportieren (PNG)</button>
                 <button onClick={handleReset} className="px-4 py-1.5 bg-[#d32f2f] hover:bg-red-800 text-amber-100 rounded border-2 border-black text-2xl cursor-pointer transition-all active:scale-95">Zurücksetzen</button>
               </div>
@@ -436,12 +499,19 @@
             <div className="grid grid-cols-1 gap-6">
               <div className="w-full">
                 <div ref={calendarRef} className="p-4 md:p-6 bg-[#b1723c] rounded-xl border-8 border-[#5c2e16] shadow-2xl relative">
+                  {/* Nagel-Element (TOP-DOWN VIEW) */}
+                  <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-20">
+                    <div className="w-6 h-6 bg-gray-500 rounded-full border-2 border-gray-700 shadow-[0_2px_4px_rgba(0,0,0,0.5)]"></div>
+                  </div>
+                  
                   <div className="absolute inset-0 border-4 border-[#3a1b0b] rounded-md pointer-events-none"></div>
+                  
+                  {/* SEASON HEADER */}
                   <div className="bg-[#fcf1d8] border-4 border-[#431d11] rounded p-2 mb-4 text-center shadow-inner relative">
                     <span className="text-4xl md:text-5xl font-bold uppercase tracking-widest text-[#5c2e16]">{currentSeason}</span>
-                    <div className="absolute top-1/2 left-6 -translate-y-1/2 text-2xl">🌾</div>
-                    <div className="absolute top-1/2 right-6 -translate-y-1/2 text-2xl">🐔</div>
                   </div>
+                  
+                  {/* GRID */}
                   <div className="bg-[#f7e5c8] border-4 border-[#431d11] rounded p-3 relative">
                     <div className="grid grid-cols-7 gap-1 text-center mb-2 border-b-4 border-[#431d11] pb-1">
                       {DAYS_OF_WEEK.map((day) => <div key={day} className="text-xl md:text-2xl font-bold text-[#8a4e28]">{day}</div>)}
@@ -453,7 +523,7 @@
                         const isSelected = selectedDay === day;
                         return (
                           <div key={day} onClick={() => handleDayClick(day)} className={`aspect-square relative cursor-pointer rounded border-2 transition-all p-1 flex flex-col items-center justify-center overflow-hidden ${isSelected ? 'border-yellow-500 bg-[#e7c793] ring-4 ring-yellow-400 scale-105 z-10' : 'border-[#431d11] bg-[#fcf1d8] hover:bg-[#ebd5b1]'}`}>
-                            <span className="absolute top-1 left-1.5 text-lg md:text-xl font-bold text-[#8a4e28] leading-none z-10">{day}</span>
+                            <span className="absolute top-1 left-1.5 text-2xl md:text-3xl font-bold text-[#8a4e28] leading-none z-10">{day}</span>
                             {dayEvent && (
                               <div className="w-full h-full flex flex-col items-center justify-center pt-2 transform -translate-x-3 translate-y-1">
                                 <div 
@@ -464,12 +534,12 @@
                                   }}
                                   title={dayEvent.title}
                                 >
-                                  {dayEvent.type === 'birthday' && dayEvent.image ? (
+                                  {dayEvent.type !== 'none' && dayEvent.image ? (
                                     <div className="w-full h-full rounded flex items-center justify-center overflow-hidden shadow-sm shrink-0">
                                       <img src={dayEvent.image} alt={dayEvent.title} className="w-full h-full object-cover" />
                                     </div>
                                   ) : (
-                                    <span className="text-xs sm:text-sm md:text-base leading-none drop-shadow-[0_1px_0_rgba(0,0,0,0.15)]">{dayEvent.icon || '⭐'}</span>
+                                    <span className="text-sm sm:text-base md:text-xl leading-none drop-shadow-[0_1px_0_rgba(0,0,0,0.15)]">{dayEvent.icon || '⭐'}</span>
                                   )}
                                 </div>
                               </div>
@@ -488,8 +558,8 @@
                 <p className="font-bold text-xl mb-1 text-amber-200">💡 Anleitung & Tipps:</p>
                 <ul className="list-disc pl-5 space-y-1 text-amber-100/90 text-sm md:text-md">
                   <li>Klicke auf einen Tag, um den **Editor als Fenster** zu öffnen.</li>
-                  <li>Deine Änderungen werden beim Schließen übernommen.</li>
-                  <li>Wechsle oben die Jahreszeiten, um das ganze Stardew-Jahr auszugestalten.</li>
+                  <li>Deine Änderungen werden **sofort live gespeichert**.</li>
+                  <li>Nutze den "Import/Export" Button zum Teilen deines Kalenders.</li>
                 </ul>
               </div>
               <div className="text-center md:text-right text-[#c18d53] text-sm shrink-0">Inspiriert vom Spieldesign aus Stardew Valley von ConcernedApe.</div>
@@ -517,12 +587,20 @@
 =========================================
 CHANGELOG:
 ...
-v1.4.9 (Sticky-Header im Modal):
-- Die Editor-Struktur wurde für eine "Sticky-Preview" optimiert.
-- Der Titel und die Live-Vorschau des Tages bleiben beim Scrollen im Editor immer sichtbar am oberen Rand fixiert.
+v1.5.2 (Export-Fokus & Typografie-Update):
+- Export-Fokus: Nur noch Kalender-Board wird exportiert, GUI entfernt.
+- Typografie-Update: Tageszahlen und Jahreszeiten-Titel um 100% vergrößert.
+- Clipping: Überlauf-Verhalten in Kalenderkacheln strikt beibehalten.
 
-v1.5.0 (Vorschau-Visualisierung):
-- Die Preview im Modal sieht nun exakt aus wie eine Kalenderkachel (mit Datumszahl, Rahmen und ähnlichem Look & Feel).
-- Die Transformationslogik wurde synchronisiert, sodass die Preview eine präzise Vorschau auf die Kachel im Kalender liefert.
+v1.5.3 (Korrektur & Details):
+- Skalierung: Tageszahlen und Überschrift um 40% verkleinert für besseres Layout.
+- Design: "Nagel" oben in der Mitte hinzugefügt.
+- Export-Alignment: Fehler bei der vertikalen Ausrichtung behoben.
+
+v1.5.4 (Import, Export & Teilen):
+- Import/Export-System via JSON-Dateien & Zwischenablage hinzugefügt.
+- "Teilen"-Feature über URL-Parameter (Seed) hinzugefügt.
+- Nagel-Design als Top-Down-Ansicht (Rund) optimiert.
+- Export-Layout fixiert (Verrutschen behoben).
 =========================================
 -->
