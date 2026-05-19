@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stardew Valley Kalender-Editor v1.5.5</title>
+  <title>Stardew Valley Kalender-Editor v1.5.6</title>
   
   <meta name="theme-color" content="#30160b">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -65,7 +65,8 @@
         const seed = params.get('seed');
         if (seed) {
           try {
-            return JSON.parse(atob(seed));
+            // Dekodierung des Base64-Seeds mit Unicode-Unterstützung
+            return JSON.parse(decodeURIComponent(escape(atob(seed))));
           } catch (e) {
             console.error("Fehler beim Laden des Seeds:", e);
           }
@@ -87,7 +88,7 @@
       const [toastMessage, setToastMessage] = useState('');
       const [isMuted, setIsMuted] = useState(false);
       const [isEditorOpen, setIsEditorOpen] = useState(false);
-      const [isModalOpen, setIsModalOpen] = useState(false); // Für Import/Export/Teilen
+      const [isModalOpen, setIsModalOpen] = useState(false); 
       
       const [eventType, setEventType] = useState('none');
       const [eventTitle, setEventTitle] = useState('');
@@ -320,7 +321,9 @@
       };
 
       const handleCopyShare = () => {
-        const shareUrl = window.location.origin + window.location.pathname + '?seed=' + btoa(JSON.stringify(calendarData));
+        // Encodierung des Seeds mit Unicode-Unterstützung
+        const seed = btoa(unescape(encodeURIComponent(JSON.stringify(calendarData))));
+        const shareUrl = window.location.origin + window.location.pathname + '?seed=' + seed;
         navigator.clipboard.writeText(shareUrl).then(() => showToast('Link kopiert!'));
       };
 
@@ -601,5 +604,9 @@ v1.5.4 (Import, Export & Teilen):
 
 v1.5.5 (Zwischenablage für JSON):
 - Button "JSON in Zwischenablage kopieren" im Import/Export-Modal hinzugefügt.
+
+v1.5.6 (Unicode-sicherer Seed):
+- Encodierung des Seeds für das Teilen per URL-Parameter wurde robust gestaltet (Unicode-Unterstützung).
+- Der geteilte Link funktioniert nun zuverlässig mit allen Emojis und Sonderzeichen.
 =========================================
 -->
