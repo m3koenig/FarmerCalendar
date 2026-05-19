@@ -37,10 +37,10 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
 
-    // Standard-Events auf Deutsch, um den Kalender direkt mit Leben zu füllen
+    // Standard-Events auf Deutsch mit angepassten, thematischen Emojis (Kent mit Militär-Medaille statt Bombe)
     const DEFAULT_EVENTS = {
       Frühling: {
-        4: { type: 'birthday', title: 'Kent', icon: '💣', color: '#ffeb3b', isDefault: true },
+        4: { type: 'birthday', title: 'Kent', icon: '🎖️', color: '#ffeb3b', isDefault: true },
         13: { type: 'festival', title: 'Eierfestival', icon: '🥚', color: '#4caf50', isDefault: true },
         24: { type: 'festival', title: 'Blumentanz', icon: '🌸', color: '#e91e63', isDefault: true }
       },
@@ -92,7 +92,6 @@
 
       const calendarRef = useRef(null);
 
-      // Dynamisches Laden der Schriftart & des Export-Tools
       useEffect(() => {
         // VT323 Schriftart für perfekten Pixel-Look laden
         const link = document.createElement('link');
@@ -114,12 +113,10 @@
         };
       }, []);
 
-      // Kalenderdaten automatisch im LocalStorage sichern, sobald sie sich ändern
       useEffect(() => {
         localStorage.setItem('stardew_calendar_data', JSON.stringify(calendarData));
       }, [calendarData]);
 
-      // Formularwerte aktualisieren, wenn sich Tag oder Jahreszeit ändert
       useEffect(() => {
         const dayEvent = calendarData[currentSeason]?.[selectedDay];
         if (dayEvent) {
@@ -135,9 +132,38 @@
           setEventColor('#4caf50');
           setEventImage(null);
         }
-      }, [selectedDay, currentSeason, calendarData]);
+      }, [selectedDay, currentSeason]);
 
-      // Web Audio API Soundeffekte für echtes Retro-Feeling
+      const updateEventInCalendar = (changes) => {
+        setCalendarData((prevData) => {
+          const updatedData = { ...prevData };
+          if (!updatedData[currentSeason]) {
+            updatedData[currentSeason] = {};
+          }
+
+          const activeType = changes.type !== undefined ? changes.type : eventType;
+
+          if (activeType === 'none') {
+            delete updatedData[currentSeason][selectedDay];
+          } else {
+            // Ermittle die Werte, indem aktuelle State-Werte mit neuen Änderungen kombiniert werden
+            const activeTitle = changes.title !== undefined ? changes.title : eventTitle;
+            const activeIcon = changes.icon !== undefined ? changes.icon : eventIcon;
+            const activeColor = changes.color !== undefined ? changes.color : eventColor;
+            const activeImage = changes.image !== undefined ? changes.image : eventImage;
+
+            updatedData[currentSeason][selectedDay] = {
+              type: activeType,
+              title: activeTitle || (activeType === 'birthday' ? 'Geburtstag' : 'Fest'),
+              icon: activeIcon,
+              color: activeColor,
+              image: activeImage
+            };
+          }
+          return updatedData;
+        });
+      };
+
       const playSound = (type) => {
         if (isMuted) return;
         try {
@@ -155,7 +181,7 @@
             gain.gain.setValueAtTime(0.08, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.05);
             osc.start();
-            osc.stop(ctx.currentTime + 0.06);
+            osc.stop(ctx.currentTime + 0.05);
           } else if (type === 'select') {
             osc.type = 'triangle';
             osc.frequency.setValueAtTime(580, ctx.currentTime);
@@ -163,7 +189,7 @@
             gain.gain.setValueAtTime(0.12, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
             osc.start();
-            osc.stop(ctx.currentTime + 0.11);
+            osc.stop(ctx.currentTime + 0.1);
           } else if (type === 'save') {
             osc.type = 'square';
             osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
@@ -171,10 +197,10 @@
             gain.gain.setValueAtTime(0.05, ctx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
             osc.start();
-            osc.stop(ctx.currentTime + 0.22);
+            osc.stop(ctx.currentTime + 0.2);
           }
         } catch (e) {
-          // Audio-Fehler abfangen, falls vom Browser blockiert oder nicht unterstützt
+          // Audio-Fehler geräuschlos abfangen
         }
       };
 
@@ -201,6 +227,7 @@
           reader.onloadend = () => {
             setEventImage(reader.result);
             playSound('click');
+            updateEventInCalendar({ image: reader.result });
           };
           reader.readAsDataURL(file);
         }
@@ -208,27 +235,7 @@
 
       const handleSaveEvent = () => {
         playSound('save');
-        const updatedData = { ...calendarData };
-        
-        if (!updatedData[currentSeason]) {
-          updatedData[currentSeason] = {};
-        }
-
-        if (eventType === 'none') {
-          delete updatedData[currentSeason][selectedDay];
-          showToast(`Eintrag für Tag ${selectedDay} gelöscht.`);
-        } else {
-          updatedData[currentSeason][selectedDay] = {
-            type: eventType,
-            title: eventTitle || (eventType === 'birthday' ? 'Geburtstag' : 'Fest'),
-            icon: eventIcon,
-            color: eventColor,
-            image: eventImage
-          };
-          showToast(`Tag ${selectedDay} erfolgreich gespeichert!`);
-        }
-
-        setCalendarData(updatedData);
+        showToast(`Tag ${selectedDay} erfolgreich gespeichert!`);
       };
 
       const handleExport = () => {
@@ -259,6 +266,7 @@
         playSound('select');
         setCalendarData(JSON.parse(JSON.stringify(DEFAULT_EVENTS)));
         localStorage.removeItem('stardew_calendar_data');
+        setSelectedDay(1);
         showToast('Kalender zurückgesetzt.');
       };
 
@@ -389,31 +397,32 @@
                           <div
                             key={day}
                             onClick={() => handleDayClick(day)}
-                            className={`aspect-square relative cursor-pointer rounded border-2 transition-all p-1 flex flex-col justify-between overflow-hidden ${
+                            className={`aspect-square relative cursor-pointer rounded border-2 transition-all p-1 flex flex-col items-center justify-center overflow-hidden ${
                               isSelected 
                                 ? 'border-yellow-500 bg-[#e7c793] ring-4 ring-yellow-400 scale-105 z-10' 
                                 : 'border-[#431d11] bg-[#fcf1d8] hover:bg-[#ebd5b1]'
                             }`}
                           >
-                            {/* Tagesnummer */}
-                            <span className="text-lg md:text-xl font-bold text-[#8a4e28] leading-none">
+                            {/* Tagesnummer - Absolut positioniert um Platz zu sparen */}
+                            <span className="absolute top-1 left-1.5 text-sm md:text-base font-bold text-[#8a4e28] leading-none z-10">
                               {day}
                             </span>
 
-                            {/* Eventanzeige innerhalb der Zelle */}
+                            {/* Eventanzeige innerhalb der Zelle - Vertikal optimiert und höher gerückt */}
                             {dayEvent && (
-                              <div className="flex-grow flex flex-col items-center justify-center w-full mt-1">
+                              <div className="w-full h-full flex flex-col items-center justify-center pt-4 md:pt-5 pb-0.5">
                                 {dayEvent.type === 'birthday' && (
-                                  <div className="relative flex flex-col items-center justify-center">
-                                    {/* Portraitrahmen für Charakterbilder */}
-                                    <div className="w-8 h-8 md:w-12 md:h-12 rounded bg-[#dcb17a] border-2 border-[#431d11] flex items-center justify-center overflow-hidden shadow-sm">
+                                  <div className="relative flex flex-col items-center justify-center h-full w-full">
+                                    {/* Portraitrahmen - Kompakter und höher gerückt */}
+                                    <div className="w-7 h-7 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded bg-[#dcb17a] border-2 border-[#431d11] flex items-center justify-center overflow-hidden shadow-sm shrink-0">
                                       {dayEvent.image ? (
-                                        <img src={dayEvent.image} alt={dayEvent.title} className="w-full h-full object-cover" />
+                                        <img src={dayEvent.image} alt={dayEvent.title} className="w-full h-full object-cover animate-fade-in" />
                                       ) : (
-                                        <span className="text-xl md:text-2xl">{dayEvent.icon}</span>
+                                        <span className="text-base sm:text-lg md:text-xl">{dayEvent.icon}</span>
                                       )}
                                     </div>
-                                    <span className="text-xs md:text-sm font-bold text-center leading-tight max-w-full truncate bg-[#431d11] text-amber-100 px-1 rounded-sm mt-0.5">
+                                    {/* Text-Label perfekt am Boden platziert und voll sichtbar */}
+                                    <span className="text-[7px] sm:text-[9px] md:text-[10px] font-bold text-center leading-none max-w-full truncate bg-[#431d11] text-amber-100 px-1 py-0.5 rounded-sm mt-0.5 shrink-0">
                                       {dayEvent.title}
                                     </span>
                                   </div>
@@ -421,20 +430,20 @@
 
                                 {dayEvent.type === 'festival' && (
                                   <div 
-                                    className="w-full h-full rounded border border-[#431d11] flex flex-col items-center justify-center px-0.5 py-0.5 text-center text-white"
+                                    className="w-full h-full rounded border border-[#431d11] flex flex-col items-center justify-center p-0.5 text-center text-white overflow-hidden"
                                     style={{ backgroundColor: dayEvent.color || '#4caf50' }}
                                   >
-                                    <span className="text-sm md:text-lg leading-none">{dayEvent.icon}</span>
-                                    <span className="text-[9px] md:text-xs font-bold leading-tight line-clamp-2 uppercase break-all">
+                                    <span className="text-xs sm:text-sm md:text-base leading-none mb-0.5">{dayEvent.icon}</span>
+                                    <span className="text-[7px] sm:text-[9px] md:text-[10px] font-bold leading-none uppercase break-words line-clamp-2 w-full px-0.5">
                                       {dayEvent.title}
                                     </span>
                                   </div>
                                 )}
 
                                 {dayEvent.type === 'note' && (
-                                  <div className="w-full h-full border-t border-[#8a4e28] flex flex-col items-center justify-center text-center">
-                                    <span className="text-sm md:text-lg">{dayEvent.icon}</span>
-                                    <span className="text-[9px] md:text-xs text-[#5c2e16] font-semibold truncate max-w-full">
+                                  <div className="w-full h-full flex flex-col items-center justify-center text-center overflow-hidden">
+                                    <span className="text-xs sm:text-sm md:text-base mb-0.5">{dayEvent.icon}</span>
+                                    <span className="text-[7px] sm:text-[9px] md:text-[10px] text-[#5c2e16] font-semibold truncate w-full px-0.5">
                                       {dayEvent.title}
                                     </span>
                                   </div>
@@ -473,7 +482,11 @@
                         ].map((opt) => (
                           <button
                             key={opt.id}
-                            onClick={() => { playSound('click'); setEventType(opt.id); }}
+                            onClick={() => { 
+                              playSound('click'); 
+                              setEventType(opt.id);
+                              updateEventInCalendar({ type: opt.id });
+                            }}
                             className={`py-1.5 px-2 text-lg rounded border-2 border-[#431d11] cursor-pointer flex items-center justify-center gap-1 transition-all ${
                               eventType === opt.id 
                                 ? 'bg-[#e4a558] font-bold shadow-inner border-yellow-700' 
@@ -489,7 +502,7 @@
 
                     {/* Formular-Details bei aktivem Event */}
                     {eventType !== 'none' && (
-                      <div className="space-y-4">
+                      <div className="space-y-4 animate-fade-in">
                         
                         {/* Titel / Name */}
                         <div>
@@ -497,7 +510,11 @@
                           <input
                             type="text"
                             value={eventTitle}
-                            onChange={(e) => setEventTitle(e.target.value)}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setEventTitle(val);
+                              updateEventInCalendar({ title: val });
+                            }}
                             placeholder={eventType === 'birthday' ? "Name des Dorfbewohners" : "Z.B. Festival-Name"}
                             className="w-full bg-[#f7e5c8] border-2 border-[#431d11] rounded p-2 text-[#431d11] placeholder-[#431d11]/40 outline-none focus:ring-2 focus:ring-[#8a4e28]"
                           />
@@ -510,7 +527,11 @@
                             {['⭐', '🥚', '🌸', '🎂', '🎃', '🎁', '⛄', '🍲', '🏮', '🔮', '🎟️', '🦖', '🍎', '🐟', '🍺', '🐔', '🐮', '🧙'].map((emoji) => (
                               <button
                                 key={emoji}
-                                onClick={() => { playSound('click'); setEventIcon(emoji); }}
+                                onClick={() => { 
+                                  playSound('click'); 
+                                  setEventIcon(emoji); 
+                                  updateEventInCalendar({ icon: emoji });
+                                }}
                                 className={`text-2xl p-1 rounded hover:bg-[#ebd5b1] cursor-pointer ${
                                   eventIcon === emoji ? 'bg-[#c18d53] shadow-inner' : ''
                                 }`}
@@ -544,7 +565,11 @@
                                 <div className="relative w-12 h-12 border-2 border-[#431d11] rounded overflow-hidden shrink-0">
                                   <img src={eventImage} alt="Vorschau" className="w-full h-full object-cover" />
                                   <button 
-                                    onClick={() => { setEventImage(null); playSound('click'); }}
+                                    onClick={() => { 
+                                      setEventImage(null); 
+                                      playSound('click'); 
+                                      updateEventInCalendar({ image: null });
+                                    }}
                                     className="absolute top-0 right-0 bg-red-600 text-white w-4 h-4 flex items-center justify-center text-[10px] cursor-pointer font-bold"
                                   >
                                     X
@@ -570,7 +595,11 @@
                               ].map((theme) => (
                                 <button
                                   key={theme.hex}
-                                  onClick={() => { playSound('click'); setEventColor(theme.hex); }}
+                                  onClick={() => { 
+                                    playSound('click'); 
+                                    setEventColor(theme.hex); 
+                                    updateEventInCalendar({ color: theme.hex });
+                                  }}
                                   className={`w-8 h-8 rounded-full border-2 border-[#431d11] cursor-pointer transition-all relative ${
                                     eventColor === theme.hex ? 'scale-110 ring-2 ring-yellow-400' : ''
                                   }`}
@@ -589,13 +618,13 @@
                       </div>
                     )}
 
-                    {/* Speichern Button */}
+                    {/* Speichern Feedback Button */}
                     <div className="border-t-4 border-[#431d11] pt-4 mt-6">
                       <button
                         onClick={handleSaveEvent}
                         className="w-full py-2 bg-[#9ccc65] hover:bg-[#8ebc59] border-2 border-[#431d11] font-bold text-2xl rounded text-[#1a380f] shadow cursor-pointer transition-all active:scale-95"
                       >
-                        Anwenden auf Tag {selectedDay}
+                        Änderungen übernehmen
                       </button>
                     </div>
 
@@ -610,7 +639,8 @@
               <div>
                 <p className="font-bold text-xl mb-1 text-amber-200">💡 Anleitung & Tipps:</p>
                 <ul className="list-disc pl-5 space-y-1 text-amber-100/90 text-sm md:text-md">
-                  <li>Klicke auf ein beliebiges Kalenderfeld, um Ereignisse zu planen oder zu entfernen.</li>
+                  <li>Deine Änderungen werden **sofort live gespeichert**, sobald du tippst oder Symbole änderst!</li>
+                  <li>Klicke einfach auf einen beliebigen anderen Tag im Kalendergitter, um nahtlos weiterzuarbeiten.</li>
                   <li>Wechsle oben die Jahreszeiten, um das ganze Stardew-Jahr auszugestalten.</li>
                   <li>Lade ein quadratisches Pixel-Art-Portrait deines Lieblings-Dorfbewohners für Geburtstage hoch!</li>
                   <li>Mit dem "Bild Exportieren"-Button kannst du dein Design als scharfes Retro-Bild sichern.</li>
@@ -631,19 +661,15 @@
     const root = ReactDOM.createRoot(container);
     root.render(<App />);
 
-    // PWA Service Worker Registrierung mit robustem Error-Handling (Verhindert Fehler bei Blob-Protokollen und Sandboxes)
+    // PWA Service Worker Registrierung mit robustem Fallback
     if ('serviceWorker' in navigator && window.self === window.top) {
       window.addEventListener('load', () => {
-        // Da blob:-URLs für Service Worker von modernen Browsern blockiert werden,
-        // versuchen wir die Registrierung einer optionalen lokalen 'sw.js' Datei.
-        // Falls diese nicht existiert oder blockiert wird, fangen wir den Fehler sauber ab.
         navigator.serviceWorker.register('./sw.js')
           .then(() => {
             console.log('PWA Service Worker registriert.');
           })
           .catch(err => {
-            // Geräuschloser Fallback für Entwicklungsumgebungen, Sandboxes und lokale Dateien
-            console.info('PWA-Modus: Offline-Synchronisierung läuft über LocalStorage (sw.js optional für erweitertes Caching).');
+            console.info('PWA-Modus: Offline-Synchronisierung läuft aktiv über LocalStorage.');
           });
       });
     } else {
@@ -660,18 +686,22 @@ v1.0.0 (Initiale Version):
 
 v1.1.0 (PWA & LocalStorage Upgrade):
 - Integration eines inline Service Workers für robusten Offline-Betrieb.
-- Hinzufügen eines Manifests als Data-URI zur problemlosen Installation auf mobilen Geräten (A2HS).
-- Feature hinzugefügt: Automatische Zustand-Sicherung im LocalStorage des Browsers, damit Kalendereinträge beim Neuladen/Offline-Gehen erhalten bleiben.
-- Optimierung der Layout-Responsivität für verschiedene Bildschirmgrößen.
-- Vollständig lokalisierte Code-Kommentare und strukturierte Ladeindikatoren hinzugefügt.
+- Hinzufügen eines Manifests als Data-URI zur installierbaren App.
+- Automatische Zustand-Sicherung im LocalStorage des Browsers.
 
 v1.1.1 (Service Worker Sandbox-Fix):
-- Behebung des Registrierungsfehlers bei blob:-Protokollen in sandboxed Iframes und Cloud-Hosting-Umgebungen.
-- Service Worker-Registrierung für Sandboxes/Iframes übersprungen, um Konsolen-Warnungen zu verhindern.
-- Robuste Abfanglogik hinzugefügt, falls kein separates 'sw.js'-Skript vorhanden ist, bei vollem Erhalt der PWA-Konformität und des lokalen Speichers.
+- Behebung des Registrierungsfehlers in sandboxed Iframes.
 
 v1.1.2 (Sicherheits- & Code-Integritäts-Patch):
-- Behobener Truncation-Fehler: Der gesamte Quelltext wurde wiederhergestellt und zu 100% lückenfrei ausgeliefert.
-- Behebung des "Weißer Bildschirm"-Vorschaufehlers in Entwicklungsumgebungen durch garantierte Dateivollständigkeit.
+- Behebung des Absturz-Fehlers durch Wiederherstellung der Dateivollständigkeit.
+
+v1.2.0 (Real-Time Auto-Save & Emoji-Bereinigung):
+- Echtzeit-Speicherung bei jeglicher Formulareingabe ohne Klick-Zwang.
+- Militär-Medaillen-Symbol (🎖️) als Kents Geburtstagssymbol.
+
+v1.3.0 (Layout-Rework & Icon-Sichtbarkeit):
+- Positionierung der Tagesnummer auf absolut geändert, um Platz freizugeben.
+- Event-Icons & Portraits im Gitter höher gerückt und zentriert, damit sie nicht am unteren Rand abgeschnitten werden.
+- Responsive Anpassung aller Badge- und Textgrößen innerhalb der Kalenderzellen für perfekte Lesbarkeit.
 =========================================
 -->
