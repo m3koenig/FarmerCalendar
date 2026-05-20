@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kalender-Editor v1.7.1</title>
+  <title>Kalender-Editor v1.7.5</title>
   
   <meta name="theme-color" content="#30160b">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -306,6 +306,14 @@
             gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.2);
             osc.start();
             osc.stop(ctx.currentTime + 0.22);
+          } else if (type === 'cancel') {
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(400, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.2);
           }
         } catch (e) {}
       };
@@ -358,7 +366,6 @@
           reader.onloadend = () => {
             setEventImage(reader.result);
             playSound('click');
-            updateEventInCalendar({ image: reader.result });
           };
           reader.readAsDataURL(file);
         }
@@ -366,6 +373,7 @@
 
       const handleSaveEvent = () => {
         playSound('save');
+        updateEventInCalendar({});
         setIsEditorOpen(false);
         const savedDay = selectedDay;
         setSelectedDay(null);
@@ -552,7 +560,7 @@
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
               <div className="relative w-full max-w-lg bg-[#b1723c] rounded-xl border-8 border-[#5c2e16] shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="relative p-3 text-center border-b-4 border-[#5c2e16] bg-[#b1723c]">
-                  <button onClick={() => { playSound('save'); setIsEditorOpen(false); setSelectedDay(null); }} className="absolute top-2 right-2 text-3xl font-bold bg-[#5c2e16] text-amber-100 px-3 py-1 rounded hover:bg-[#3a1b0b]">X</button>
+                  <button onClick={() => { playSound('cancel'); setIsEditorOpen(false); setSelectedDay(null); }} className="absolute top-2 right-2 text-3xl font-bold bg-[#5c2e16] text-amber-100 px-3 py-1 rounded hover:bg-[#3a1b0b]">X</button>
                   <h2 className="text-3xl font-bold text-[#fcf1d8]">
                       {calendarMode === 'stardew' ? `Tag ${selectedDay} Bearbeiten` : `${selectedDay}. ${MONTHS[currentMonth]} Bearbeiten`}
                   </h2>
@@ -586,7 +594,7 @@
                       <label className="block font-bold mb-1">Ereignis-Kategorie:</label>
                       <div className="grid grid-cols-2 gap-2">
                         {[{ id: 'none', label: 'Leer', icon: '❌' }, { id: 'birthday', label: 'Geburtstag', icon: '🎂' }, { id: 'festival', label: 'Fest', icon: '🎪' }, { id: 'note', label: 'Anderes', icon: '📌' }].map((opt) => (
-                          <button key={opt.id} onClick={() => { playSound('click'); setEventType(opt.id); updateEventInCalendar({ type: opt.id }); }} className={`py-1.5 px-2 text-lg rounded border-2 border-[#431d11] cursor-pointer flex items-center justify-center gap-1 transition-all ${eventType === opt.id ? 'bg-[#e4a558] font-bold shadow-inner border-yellow-700' : 'bg-[#f7e5c8] hover:bg-[#ebd5b1]'}`}><span>{opt.icon}</span><span>{opt.label}</span></button>
+                          <button key={opt.id} onClick={() => { playSound('click'); setEventType(opt.id); }} className={`py-1.5 px-2 text-lg rounded border-2 border-[#431d11] cursor-pointer flex items-center justify-center gap-1 transition-all ${eventType === opt.id ? 'bg-[#e4a558] font-bold shadow-inner border-yellow-700' : 'bg-[#f7e5c8] hover:bg-[#ebd5b1]'}`}><span>{opt.icon}</span><span>{opt.label}</span></button>
                         ))}
                       </div>
                     </div>
@@ -594,10 +602,10 @@
                       <div className="space-y-4 animate-fade-in">
                         <div>
                           <label className="block font-bold mb-1">Name / Beschreibung:</label>
-                          <input type="text" value={eventTitle} onChange={(e) => { const val = e.target.value; setEventTitle(val); updateEventInCalendar({ title: val }); }} placeholder={eventType === 'birthday' ? "Name des Dorfbewohners" : "Z.B. Festival-Name"} className="w-full bg-[#f7e5c8] border-2 border-[#431d11] rounded p-2 text-[#431d11] placeholder-[#431d11]/40 outline-none focus:ring-2 focus:ring-[#8a4e28]" />
+                          <input type="text" value={eventTitle} onChange={(e) => { setEventTitle(e.target.value); }} placeholder={eventType === 'birthday' ? "Name des Dorfbewohners" : "Z.B. Festival-Name"} className="w-full bg-[#f7e5c8] border-2 border-[#431d11] rounded p-2 text-[#431d11] placeholder-[#431d11]/40 outline-none focus:ring-2 focus:ring-[#8a4e28]" />
                           
                           <label className="flex items-center gap-2 mt-3 cursor-pointer bg-[#f7e5c8] p-2 border-2 border-[#431d11] rounded hover:bg-[#ebd5b1] transition-all">
-                            <input type="checkbox" checked={eventShowTitle} onChange={(e) => { const val = e.target.checked; setEventShowTitle(val); updateEventInCalendar({ showTitle: val }); playSound('click'); }} className="w-6 h-6 accent-[#431d11] cursor-pointer" />
+                            <input type="checkbox" checked={eventShowTitle} onChange={(e) => { setEventShowTitle(e.target.checked); playSound('click'); }} className="w-6 h-6 accent-[#431d11] cursor-pointer" />
                             <span className="font-bold">Text als Overlay im Kalender anzeigen</span>
                           </label>
                           
@@ -605,15 +613,15 @@
                             <div className="mt-2 p-3 bg-[#e4a558] border-2 border-[#431d11] rounded space-y-3 shadow-inner animate-fade-in">
                               <div className="space-y-1">
                                 <label className="text-sm font-bold">Text-Größe: {Math.round(eventTitleScale * 100)}%</label>
-                                <input type="range" min="0.3" max="2.5" step="0.1" value={eventTitleScale} onChange={(e) => { const s = parseFloat(e.target.value); setEventTitleScale(s); updateEventInCalendar({ titleScale: s }); }} className="w-full accent-[#431d11]" />
+                                <input type="range" min="0.3" max="2.5" step="0.1" value={eventTitleScale} onChange={(e) => { setEventTitleScale(parseFloat(e.target.value)); }} className="w-full accent-[#431d11]" />
                               </div>
                               <div className="space-y-1">
                                 <label className="text-sm font-bold">Text-Position X: {eventTitleOffsetX}px</label>
-                                <input type="range" min="-60" max="60" step="1" value={eventTitleOffsetX} onChange={(e) => { const x = parseInt(e.target.value); setEventTitleOffsetX(x); updateEventInCalendar({ titleOffsetX: x }); }} className="w-full accent-[#431d11]" />
+                                <input type="range" min="-60" max="60" step="1" value={eventTitleOffsetX} onChange={(e) => { setEventTitleOffsetX(parseInt(e.target.value)); }} className="w-full accent-[#431d11]" />
                               </div>
                               <div className="space-y-1">
                                 <label className="text-sm font-bold">Text-Position Y: {eventTitleOffsetY}px</label>
-                                <input type="range" min="-60" max="60" step="1" value={eventTitleOffsetY} onChange={(e) => { const y = parseInt(e.target.value); setEventTitleOffsetY(y); updateEventInCalendar({ titleOffsetY: y }); }} className="w-full accent-[#431d11]" />
+                                <input type="range" min="-60" max="60" step="1" value={eventTitleOffsetY} onChange={(e) => { setEventTitleOffsetY(parseInt(e.target.value)); }} className="w-full accent-[#431d11]" />
                               </div>
                             </div>
                           )}
@@ -622,7 +630,7 @@
                           <label className="block font-bold mb-1">Symbol-Icon oder Kurztext:</label>
                           <div className="grid grid-cols-7 gap-1 bg-[#f7e5c8] p-2 border-2 border-[#431d11] rounded mb-3">
                             {['⭐', '🥚', '🌸', '🎂', '🎃', '🎁', '⛄', '🍲', '🏮', '🔮', '🎟️', '🦖', '🍎', '🐟', '🍺', '🐔', '🐮', '🧙', '🎉', '🍿', '🛌'].map((emoji) => (
-                              <button key={emoji} onClick={() => { playSound('click'); setEventIcon(emoji); updateEventInCalendar({ icon: emoji }); }} className={`text-2xl p-1 rounded hover:bg-[#ebd5b1] cursor-pointer ${eventIcon === emoji ? 'bg-[#c18d53] shadow-inner' : ''}`}>{emoji}</button>
+                              <button key={emoji} onClick={() => { playSound('click'); setEventIcon(emoji); }} className={`text-2xl p-1 rounded hover:bg-[#ebd5b1] cursor-pointer ${eventIcon === emoji ? 'bg-[#c18d53] shadow-inner' : ''}`}>{emoji}</button>
                             ))}
                           </div>
                           <div className="flex items-center gap-3">
@@ -631,11 +639,7 @@
                               type="text" 
                               maxLength="3" 
                               value={eventIcon} 
-                              onChange={(e) => { 
-                                const val = e.target.value; 
-                                setEventIcon(val); 
-                                updateEventInCalendar({ icon: val }); 
-                              }} 
+                              onChange={(e) => { setEventIcon(e.target.value); }} 
                               placeholder="ABC" 
                               className="w-20 bg-[#f7e5c8] border-2 border-[#431d11] rounded p-1 text-center font-bold text-xl outline-none focus:ring-2 focus:ring-[#8a4e28]" 
                             />
@@ -644,20 +648,20 @@
                         <div className="border-t-2 border-[#431d11] pt-3 space-y-3">
                           <label className="block font-bold mb-1">Transformation:</label>
                           <div className="flex gap-2 items-center">
-                            <button onClick={() => { const newRot = (eventRotation + 90) % 360; setEventRotation(newRot); updateEventInCalendar({ rotation: newRot }); playSound('click'); }} className="px-3 py-1.5 bg-[#f7e5c8] border-2 border-[#431d11] rounded cursor-pointer hover:bg-[#ebd5b1]">↺ Rotieren</button>
-                            <button onClick={() => { const newFlip = !eventFlip; setEventFlip(newFlip); updateEventInCalendar({ flip: newFlip }); playSound('click'); }} className={`px-3 py-1.5 border-2 border-[#431d11] rounded cursor-pointer ${eventFlip ? 'bg-[#c18d53]' : 'bg-[#f7e5c8]'} hover:bg-[#ebd5b1]`}>↔ Spiegeln</button>
+                            <button onClick={() => { setEventRotation((eventRotation + 90) % 360); playSound('click'); }} className="px-3 py-1.5 bg-[#f7e5c8] border-2 border-[#431d11] rounded cursor-pointer hover:bg-[#ebd5b1]">↺ Rotieren</button>
+                            <button onClick={() => { setEventFlip(!eventFlip); playSound('click'); }} className={`px-3 py-1.5 border-2 border-[#431d11] rounded cursor-pointer ${eventFlip ? 'bg-[#c18d53]' : 'bg-[#f7e5c8]'} hover:bg-[#ebd5b1]`}>↔ Spiegeln</button>
                           </div>
                           <div className="space-y-1">
                             <label className="text-base font-bold">Größe: {Math.round(eventScale * 100)}%</label>
-                            <input type="range" min="0.5" max="2" step="0.1" value={eventScale} onChange={(e) => { const s = parseFloat(e.target.value); setEventScale(s); updateEventInCalendar({ scale: s }); }} className="w-full accent-[#431d11]" />
+                            <input type="range" min="0.5" max="2" step="0.1" value={eventScale} onChange={(e) => { setEventScale(parseFloat(e.target.value)); }} className="w-full accent-[#431d11]" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-base font-bold">Verschiebung X: {eventOffsetX}px</label>
-                            <input type="range" min="-40" max="40" step="1" value={eventOffsetX} onChange={(e) => { const x = parseInt(e.target.value); setEventOffsetX(x); updateEventInCalendar({ offsetX: x }); }} className="w-full accent-[#431d11]" />
+                            <input type="range" min="-40" max="40" step="1" value={eventOffsetX} onChange={(e) => { setEventOffsetX(parseInt(e.target.value)); }} className="w-full accent-[#431d11]" />
                           </div>
                           <div className="space-y-1">
                             <label className="text-base font-bold">Verschiebung Y: {eventOffsetY}px</label>
-                            <input type="range" min="-40" max="40" step="1" value={eventOffsetY} onChange={(e) => { const y = parseInt(e.target.value); setEventOffsetY(y); updateEventInCalendar({ offsetY: y }); }} className="w-full accent-[#431d11]" />
+                            <input type="range" min="-40" max="40" step="1" value={eventOffsetY} onChange={(e) => { setEventOffsetY(parseInt(e.target.value)); }} className="w-full accent-[#431d11]" />
                           </div>
                         </div>
                         <div className="border-t-2 border-[#431d11] pt-3">
@@ -891,5 +895,13 @@ v1.7.2 (UX Optimierung):
 v1.7.3 (Bugfix & Klarheit):
 - BUGFIX: "Zurücksetzen" hat zuvor die Stardew-Standardwerte geladen, was wie ein nicht funktionierendes Löschen wirkte.
 - FEATURE: Der Menü-Eintrag wurde in "Alles löschen (Leeren)" und "Stardew-Standard laden" aufgeteilt.
+
+v1.7.4 (Abbrechen-Funktion):
+- FEATURE: Schließen über "X" verwirft nun ungespeicherte Änderungen.
+- FEATURE: Eigener "Abbrechen"-Sound hinzugefügt.
+- OPTIMIERUNG: Änderungen im Editor aktualisieren den Kalender erst beim Klick auf "Änderungen übernehmen" (Entwurfsmodus).
+
+v1.7.5 (Hotfix):
+- BUGFIX: Syntax-Fehler behoben (fehlendes schließendes div-Tag im Editor-Modal), der verhinderte, dass die Anwendung geladen werden konnte.
 =========================================
 -->
