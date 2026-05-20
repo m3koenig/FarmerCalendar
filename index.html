@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kalender-Editor v1.6.0</title>
+  <title>Kalender-Editor v1.6.1</title>
   
   <meta name="theme-color" content="#30160b">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -516,11 +516,26 @@
                           <input type="text" value={eventTitle} onChange={(e) => { const val = e.target.value; setEventTitle(val); updateEventInCalendar({ title: val }); }} placeholder={eventType === 'birthday' ? "Name des Dorfbewohners" : "Z.B. Festival-Name"} className="w-full bg-[#f7e5c8] border-2 border-[#431d11] rounded p-2 text-[#431d11] placeholder-[#431d11]/40 outline-none focus:ring-2 focus:ring-[#8a4e28]" />
                         </div>
                         <div>
-                          <label className="block font-bold mb-1">Symbol-Icon wählen:</label>
-                          <div className="grid grid-cols-6 gap-1 bg-[#f7e5c8] p-2 border-2 border-[#431d11] rounded">
-                            {['⭐', '🥚', '🌸', '🎂', '🎃', '🎁', '⛄', '🍲', '🏮', '🔮', '🎟️', '🦖', '🍎', '🐟', '🍺', '🐔', '🐮', '🧙'].map((emoji) => (
+                          <label className="block font-bold mb-1">Symbol-Icon oder Kurztext:</label>
+                          <div className="grid grid-cols-7 gap-1 bg-[#f7e5c8] p-2 border-2 border-[#431d11] rounded mb-3">
+                            {['⭐', '🥚', '🌸', '🎂', '🎃', '🎁', '⛄', '🍲', '🏮', '🔮', '🎟️', '🦖', '🍎', '🐟', '🍺', '🐔', '🐮', '🧙', '🎉', '🍿', '🛌'].map((emoji) => (
                               <button key={emoji} onClick={() => { playSound('click'); setEventIcon(emoji); updateEventInCalendar({ icon: emoji }); }} className={`text-2xl p-1 rounded hover:bg-[#ebd5b1] cursor-pointer ${eventIcon === emoji ? 'bg-[#c18d53] shadow-inner' : ''}`}>{emoji}</button>
                             ))}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-lg">Freitext (max. 3):</span>
+                            <input 
+                              type="text" 
+                              maxLength="3" 
+                              value={eventIcon} 
+                              onChange={(e) => { 
+                                const val = e.target.value; 
+                                setEventIcon(val); 
+                                updateEventInCalendar({ icon: val }); 
+                              }} 
+                              placeholder="ABC" 
+                              className="w-20 bg-[#f7e5c8] border-2 border-[#431d11] rounded p-1 text-center font-bold text-xl outline-none focus:ring-2 focus:ring-[#8a4e28]" 
+                            />
                           </div>
                         </div>
                         <div className="border-t-2 border-[#431d11] pt-3 space-y-3">
@@ -759,5 +774,9 @@ v1.6.0 (Gregorianischer Modus):
 - Toggle-Buttons zum Wechseln der Modi im Header hinzugefügt.
 - Dynamische Monatsberechnung (Schaltjahre, Wochentag-Verschiebung) für den Gregorianischen Kalender.
 - Hervorhebung des heutigen Tages im Gregorianischen Modus (blaue Markierung).
+
+v1.6.1 (Erweiterte Icons & Freitext):
+- Icons für "Party" (🎉), "Kino" (🍿) und "Übernachten" (🛌) hinzugefügt.
+- Freitext-Eingabe (bis zu 3 Zeichen) als Alternative zu Icons integriert.
 =========================================
 -->
