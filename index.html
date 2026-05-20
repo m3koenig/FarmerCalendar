@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stardew Valley Kalender-Editor v1.5.7</title>
+  <title>Kalender-Editor v1.6.0</title>
   
   <meta name="theme-color" content="#30160b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="shortcut icon" href="https://img.icons8.com/color/48/calendar--v1.png" type="image/png">
-  <link rel="manifest" href='data:application/manifest+json,{"name":"Stardew Valley Kalender-Editor","short_name":"SV Kalender","start_url":".","display":"standalone","background_color":"#0b0f19","theme_color":"#30160b","icons":[{"src":"https://img.icons8.com/color/192/calendar--v1.png","sizes":"192x192","type":"image/png"}]}' />
+  <link rel="manifest" href='data:application/manifest+json,{"name":"Kalender-Editor","short_name":"Kalender","start_url":".","display":"standalone","background_color":"#0b0f19","theme_color":"#30160b","icons":[{"src":"https://img.icons8.com/color/192/calendar--v1.png","sizes":"192x192","type":"image/png"}]}' />
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
@@ -22,6 +22,15 @@
       -moz-user-select: none;
       -ms-user-select: none;
       user-select: none;
+    }
+    /* Hide scrollbar for Chrome, Safari and Opera */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    /* Hide scrollbar for IE, Edge and Firefox */
+    .no-scrollbar {
+      -ms-overflow-style: none;  /* IE and Edge */
+      scrollbar-width: none;  /* Firefox */
     }
   </style>
 </head>
@@ -57,6 +66,7 @@
 
     const SEASONS = ['Frühling', 'Sommer', 'Herbst', 'Winter'];
     const DAYS_OF_WEEK = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+    const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
 
     function App() {
       const [calendarData, setCalendarData] = useState(() => {
@@ -70,7 +80,7 @@
           }
         }
         
-        const savedData = localStorage.getItem('stardew_calendar_data');
+        const savedData = localStorage.getItem('calendar_data_v2'); // New key for combined data
         if (savedData) {
           try {
             return JSON.parse(savedData);
@@ -78,16 +88,34 @@
             console.error("Fehler beim Laden der gespeicherten Kalenderdaten:", e);
           }
         }
-        return DEFAULT_EVENTS;
+        
+        // Migrate old stardew data if present
+        const oldStardewData = localStorage.getItem('stardew_calendar_data');
+        if (oldStardewData) {
+            try {
+                return { stardew: JSON.parse(oldStardewData), gregorian: {} };
+            } catch(e) {}
+        }
+
+        return { stardew: DEFAULT_EVENTS, gregorian: {} };
       });
 
+      const [calendarMode, setCalendarMode] = useState('stardew'); // 'stardew' or 'gregorian'
+      
+      // Stardew State
       const [currentSeason, setCurrentSeason] = useState('Frühling');
+      
+      // Gregorian State
+      const today = new Date();
+      const [currentYear, setCurrentYear] = useState(today.getFullYear());
+      const [currentMonth, setCurrentMonth] = useState(today.getMonth());
+
       const [selectedDay, setSelectedDay] = useState(1);
       const [toastMessage, setToastMessage] = useState('');
       const [isMuted, setIsMuted] = useState(false);
       const [isEditorOpen, setIsEditorOpen] = useState(false);
       const [isModalOpen, setIsModalOpen] = useState(false); 
-      const [isMenuOpen, setIsMenuOpen] = useState(false); // Neuer Status für das Untermenü
+      const [isMenuOpen, setIsMenuOpen] = useState(false); 
       
       const [eventType, setEventType] = useState('none');
       const [eventTitle, setEventTitle] = useState('');
@@ -133,13 +161,18 @@
       }, []);
 
       useEffect(() => {
-        localStorage.setItem('stardew_calendar_data', JSON.stringify(calendarData));
+        localStorage.setItem('calendar_data_v2', JSON.stringify(calendarData));
       }, [calendarData]);
 
-      // ... existing code ...
-      // (Die restliche Logik bleibt unverändert erhalten, wie in v1.5.6)
       useEffect(() => {
-        const dayEvent = calendarData[currentSeason]?.[selectedDay];
+        let dayEvent = null;
+        if (calendarMode === 'stardew') {
+            dayEvent = calendarData.stardew?.[currentSeason]?.[selectedDay];
+        } else {
+            const dateKey = `${currentYear}-${currentMonth + 1}-${selectedDay}`;
+            dayEvent = calendarData.gregorian?.[dateKey];
+        }
+
         if (dayEvent) {
           setEventType(dayEvent.type);
           setEventTitle(dayEvent.title);
@@ -163,31 +196,24 @@
           setEventOffsetX(0);
           setEventOffsetY(0);
         }
-      }, [selectedDay, currentSeason]);
+      }, [selectedDay, currentSeason, currentYear, currentMonth, calendarMode]);
 
       const updateEventInCalendar = (changes) => {
         setCalendarData((prevData) => {
           const updatedData = { ...prevData };
-          if (!updatedData[currentSeason]) {
-            updatedData[currentSeason] = {};
-          }
-
+          
           const activeType = changes.type !== undefined ? changes.type : eventType;
+          const activeTitle = changes.title !== undefined ? changes.title : eventTitle;
+          const activeIcon = changes.icon !== undefined ? changes.icon : eventIcon;
+          const activeColor = changes.color !== undefined ? changes.color : eventColor;
+          const activeImage = changes.image !== undefined ? changes.image : eventImage;
+          const activeRotation = changes.rotation !== undefined ? changes.rotation : eventRotation;
+          const activeFlip = changes.flip !== undefined ? changes.flip : eventFlip;
+          const activeScale = changes.scale !== undefined ? changes.scale : eventScale;
+          const activeOffsetX = changes.offsetX !== undefined ? changes.offsetX : eventOffsetX;
+          const activeOffsetY = changes.offsetY !== undefined ? changes.offsetY : eventOffsetY;
 
-          if (activeType === 'none') {
-            delete updatedData[currentSeason][selectedDay];
-          } else {
-            const activeTitle = changes.title !== undefined ? changes.title : eventTitle;
-            const activeIcon = changes.icon !== undefined ? changes.icon : eventIcon;
-            const activeColor = changes.color !== undefined ? changes.color : eventColor;
-            const activeImage = changes.image !== undefined ? changes.image : eventImage;
-            const activeRotation = changes.rotation !== undefined ? changes.rotation : eventRotation;
-            const activeFlip = changes.flip !== undefined ? changes.flip : eventFlip;
-            const activeScale = changes.scale !== undefined ? changes.scale : eventScale;
-            const activeOffsetX = changes.offsetX !== undefined ? changes.offsetX : eventOffsetX;
-            const activeOffsetY = changes.offsetY !== undefined ? changes.offsetY : eventOffsetY;
-
-            updatedData[currentSeason][selectedDay] = {
+          const eventPayload = {
               type: activeType,
               title: activeTitle || (activeType === 'birthday' ? 'Geburtstag' : 'Fest'),
               icon: activeIcon,
@@ -198,7 +224,26 @@
               scale: activeScale,
               offsetX: activeOffsetX,
               offsetY: activeOffsetY
-            };
+          };
+
+          if (calendarMode === 'stardew') {
+              if (!updatedData.stardew) updatedData.stardew = {};
+              if (!updatedData.stardew[currentSeason]) updatedData.stardew[currentSeason] = {};
+              
+              if (activeType === 'none') {
+                  delete updatedData.stardew[currentSeason][selectedDay];
+              } else {
+                  updatedData.stardew[currentSeason][selectedDay] = eventPayload;
+              }
+          } else {
+              if (!updatedData.gregorian) updatedData.gregorian = {};
+              const dateKey = `${currentYear}-${currentMonth + 1}-${selectedDay}`;
+              
+              if (activeType === 'none') {
+                  delete updatedData.gregorian[dateKey];
+              } else {
+                  updatedData.gregorian[dateKey] = eventPayload;
+              }
           }
           return updatedData;
         });
@@ -253,10 +298,34 @@
         setIsEditorOpen(true);
       };
 
+      // Stardew Navigation
       const handleSeasonChange = (season) => {
         playSound('select');
         setCurrentSeason(season);
         setSelectedDay(1);
+      };
+
+      // Gregorian Navigation
+      const handlePrevMonth = () => {
+          playSound('click');
+          if (currentMonth === 0) {
+              setCurrentMonth(11);
+              setCurrentYear(prev => prev - 1);
+          } else {
+              setCurrentMonth(prev => prev - 1);
+          }
+          setSelectedDay(1);
+      };
+
+      const handleNextMonth = () => {
+          playSound('click');
+          if (currentMonth === 11) {
+              setCurrentMonth(0);
+              setCurrentYear(prev => prev + 1);
+          } else {
+              setCurrentMonth(prev => prev + 1);
+          }
+          setSelectedDay(1);
       };
 
       const handleImageUpload = (e) => {
@@ -275,7 +344,7 @@
       const handleSaveEvent = () => {
         playSound('save');
         setIsEditorOpen(false);
-        showToast(`Tag ${selectedDay} gespeichert!`);
+        showToast(`${calendarMode === 'stardew' ? `Tag ${selectedDay}` : `${selectedDay}. ${MONTHS[currentMonth]}`} gespeichert!`);
       };
 
       const handleExport = () => {
@@ -295,7 +364,10 @@
             useCORS: true
           }).then((canvas) => {
             const link = document.createElement('a');
-            link.download = `stardew-kalender-${currentSeason.toLowerCase()}.png`;
+            const filename = calendarMode === 'stardew' 
+                ? `stardew-kalender-${currentSeason.toLowerCase()}.png`
+                : `kalender-${currentYear}-${MONTHS[currentMonth].toLowerCase()}.png`;
+            link.download = filename;
             link.href = canvas.toDataURL('image/png');
             link.click();
             showToast('Kalender als Bild gespeichert!');
@@ -307,8 +379,8 @@
 
       const handleReset = () => {
         playSound('select');
-        setCalendarData(JSON.parse(JSON.stringify(DEFAULT_EVENTS)));
-        localStorage.removeItem('stardew_calendar_data');
+        setCalendarData({ stardew: JSON.parse(JSON.stringify(DEFAULT_EVENTS)), gregorian: {} });
+        localStorage.removeItem('calendar_data_v2');
         setSelectedDay(1);
         showToast('Kalender zurückgesetzt.');
       };
@@ -318,7 +390,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'stardew-kalender-config.json';
+        a.download = 'kalender-config.json';
         a.click();
         showToast('JSON exportiert!');
       };
@@ -337,7 +409,13 @@
       const handleImportJSON = () => {
         try {
           const parsed = JSON.parse(importData);
-          setCalendarData(parsed);
+          // Simple validation
+          if (parsed.stardew || parsed.gregorian) {
+              setCalendarData(parsed);
+          } else {
+              // Assume it's old v1 format and migrate
+              setCalendarData({ stardew: parsed, gregorian: {} });
+          }
           setIsModalOpen(false);
           showToast('Daten importiert!');
         } catch (e) {
@@ -355,6 +433,19 @@
           reader.readAsText(file);
         }
       };
+
+      const getDaysInMonth = (year, month) => {
+          return new Date(year, month + 1, 0).getDate();
+      };
+
+      const getFirstDayOfMonth = (year, month) => {
+          // 0 = Sunday, 1 = Monday... we want 0 = Monday, 6 = Sunday
+          let day = new Date(year, month, 1).getDay();
+          return day === 0 ? 6 : day - 1; 
+      };
+
+      const daysInCurrentMonth = getDaysInMonth(currentYear, currentMonth);
+      const firstDayOffset = getFirstDayOfMonth(currentYear, currentMonth);
 
       return (
         <div className="min-h-screen bg-gray-950 text-[#431d11] font-mono p-4 md:p-8 flex flex-col items-center justify-start select-none" style={{ fontFamily: "'VT323', monospace" }}>
@@ -383,15 +474,15 @@
             </div>
           )}
 
-          {/* Editor-Komponente bleibt gleich */}
           {isEditorOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
               <div className="relative w-full max-w-lg bg-[#b1723c] rounded-xl border-8 border-[#5c2e16] shadow-2xl flex flex-col max-h-[90vh]">
                 <div className="relative p-3 text-center border-b-4 border-[#5c2e16] bg-[#b1723c]">
                   <button onClick={() => { playSound('save'); setIsEditorOpen(false); }} className="absolute top-2 right-2 text-3xl font-bold bg-[#5c2e16] text-amber-100 px-3 py-1 rounded hover:bg-[#3a1b0b]">X</button>
-                  <h2 className="text-3xl font-bold text-[#fcf1d8]">Tag {selectedDay} Bearbeiten</h2>
+                  <h2 className="text-3xl font-bold text-[#fcf1d8]">
+                      {calendarMode === 'stardew' ? `Tag ${selectedDay} Bearbeiten` : `${selectedDay}. ${MONTHS[currentMonth]} Bearbeiten`}
+                  </h2>
                 </div>
-                {/* ... existing code ... */}
                 <div className="bg-[#fcf1d8] border-b-4 border-[#431d11] p-3 flex justify-center items-center">
                   <div className="w-24 h-24 bg-[#fcf1d8] border-4 border-[#431d11] rounded relative flex items-center justify-center shadow-inner">
                     <span className="absolute top-1 left-2 text-xl font-bold text-[#8a4e28]">{selectedDay}</span>
@@ -408,7 +499,7 @@
                     </div>
                   </div>
                 </div>
-                <div className="overflow-y-auto flex-grow p-4 bg-[#fcf1d8]">
+                <div className="overflow-y-auto flex-grow p-4 bg-[#fcf1d8] no-scrollbar">
                   <div className="space-y-4 text-xl">
                     <div>
                       <label className="block font-bold mb-1">Ereignis-Kategorie:</label>
@@ -472,43 +563,69 @@
           <div className="w-full max-w-5xl">
             <header className="text-center mb-6 relative">
               <h1 className="text-5xl md:text-7xl text-amber-100 drop-shadow-[0_4px_0_rgba(0,0,0,0.85)] tracking-wider">
-                Stardew Valley Kalender-Editor
+                Kalender-Editor
               </h1>
-              <p className="text-2xl text-amber-200 drop-shadow-[0_2px_0_rgba(0,0,0,0.8)] mt-2">
-                Gestalte deinen eigenen, benutzerdefinierten 28-Tage-Kalender
-              </p>
+              
+              <div className="mt-4 flex justify-center gap-4">
+                  <button 
+                    onClick={() => { playSound('click'); setCalendarMode('stardew'); setSelectedDay(1); }}
+                    className={`px-6 py-2 border-4 border-[#c18d53] rounded-full text-2xl font-bold transition-all ${calendarMode === 'stardew' ? 'bg-[#e4a558] text-[#431d11] shadow-[0_0_15px_rgba(228,165,88,0.5)]' : 'bg-[#30160b] text-amber-100 hover:bg-[#4a2414]'}`}
+                  >
+                      Stardew Valley Modus
+                  </button>
+                  <button 
+                    onClick={() => { playSound('click'); setCalendarMode('gregorian'); setSelectedDay(1); }}
+                    className={`px-6 py-2 border-4 border-[#c18d53] rounded-full text-2xl font-bold transition-all ${calendarMode === 'gregorian' ? 'bg-[#9ccc65] text-[#1a380f] shadow-[0_0_15px_rgba(156,204,101,0.5)]' : 'bg-[#30160b] text-amber-100 hover:bg-[#4a2414]'}`}
+                  >
+                      Gregorianischer Modus
+                  </button>
+              </div>
 
               <button 
                 onClick={() => { setIsMuted(!isMuted); playSound('click'); }} 
-                className="absolute top-0 right-0 p-2 bg-[#30160b] hover:bg-[#4a2414] text-amber-100 rounded border-2 border-[#c18d53] text-xl cursor-pointer"
+                className="absolute top-0 right-0 p-2 bg-[#30160b] hover:bg-[#4a2414] text-amber-100 rounded border-2 border-[#c18d53] text-xl cursor-pointer hidden md:block"
                 title={isMuted ? "Töne einschalten" : "Stummschalten"}
               >
-                {isMuted ? '🔇 Ton Aus' : '🔊 Ton An'}
+                {isMuted ? '🔇' : '🔊'}
               </button>
             </header>
 
+            {/* Controls Bar */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6 bg-[#30160b] p-3 rounded-lg border-4 border-[#c18d53]">
+              
+              {/* Navigation based on mode */}
               <div className="flex flex-wrap gap-2">
-                {SEASONS.map((season) => {
-                  const isActive = currentSeason === season;
-                  const bgColors = { Frühling: 'bg-[#9ccc65]', Sommer: 'bg-[#ffd54f]', Herbst: 'bg-[#ff8a65]', Winter: 'bg-[#4fc3f7]' };
-                  const seasonIcons = { Frühling: '🌱', Sommer: '☀️', Herbst: '🍂', Winter: '❄️' };
-                  return (
-                    <button
-                      key={season}
-                      onClick={() => handleSeasonChange(season)}
-                      className={`px-4 py-1.5 text-2xl rounded border-2 border-[#431d11] cursor-pointer transition-all transform active:scale-95 flex items-center gap-2 ${
-                        isActive ? `${bgColors[season]} text-[#431d11] font-bold shadow-md scale-105` : 'bg-[#f7e5c8] text-gray-700 hover:bg-[#e9d6b9]'
-                      }`}
-                    >
-                      <span>{seasonIcons[season]}</span>
-                      <span>{season}</span>
-                    </button>
-                  );
-                })}
+                {calendarMode === 'stardew' ? (
+                    // Stardew Navigation
+                    SEASONS.map((season) => {
+                      const isActive = currentSeason === season;
+                      const bgColors = { Frühling: 'bg-[#9ccc65]', Sommer: 'bg-[#ffd54f]', Herbst: 'bg-[#ff8a65]', Winter: 'bg-[#4fc3f7]' };
+                      const seasonIcons = { Frühling: '🌱', Sommer: '☀️', Herbst: '🍂', Winter: '❄️' };
+                      return (
+                        <button
+                          key={season}
+                          onClick={() => handleSeasonChange(season)}
+                          className={`px-4 py-1.5 text-2xl rounded border-2 border-[#431d11] cursor-pointer transition-all transform active:scale-95 flex items-center gap-2 ${
+                            isActive ? `${bgColors[season]} text-[#431d11] font-bold shadow-md scale-105` : 'bg-[#f7e5c8] text-gray-700 hover:bg-[#e9d6b9]'
+                          }`}
+                        >
+                          <span>{seasonIcons[season]}</span>
+                          <span className="hidden sm:inline">{season}</span>
+                        </button>
+                      );
+                    })
+                ) : (
+                    // Gregorian Navigation
+                    <div className="flex items-center gap-4 bg-[#fcf1d8] p-1 rounded border-2 border-[#431d11]">
+                        <button onClick={handlePrevMonth} className="px-3 py-1 bg-[#e4a558] rounded border-2 border-[#431d11] hover:bg-[#c18d53] text-2xl font-bold">{"<"}</button>
+                        <div className="text-2xl font-bold text-[#431d11] w-48 text-center">
+                            {MONTHS[currentMonth]} {currentYear}
+                        </div>
+                        <button onClick={handleNextMonth} className="px-3 py-1 bg-[#e4a558] rounded border-2 border-[#431d11] hover:bg-[#c18d53] text-2xl font-bold">{">"}</button>
+                    </div>
+                )}
               </div>
               
-              {/* Untermenü Button */}
               <div className="relative" ref={menuRef}>
                   <button onClick={() => { playSound('click'); setIsMenuOpen(!isMenuOpen); }} className="px-4 py-1.5 bg-[#5c2e16] hover:bg-[#431d11] text-amber-100 rounded border-2 border-[#c18d53] text-2xl cursor-pointer transition-all active:scale-95">⚙️ Menü</button>
                   
@@ -522,6 +639,7 @@
               </div>
             </div>
 
+            {/* Calendar Grid */}
             <div className="grid grid-cols-1 gap-6">
               <div className="w-full">
                 <div ref={calendarRef} className="p-4 md:p-6 bg-[#b1723c] rounded-xl border-8 border-[#5c2e16] shadow-2xl relative">
@@ -532,44 +650,67 @@
                   <div className="absolute inset-0 border-4 border-[#3a1b0b] rounded-md pointer-events-none"></div>
                   
                   <div className="bg-[#fcf1d8] border-4 border-[#431d11] rounded p-2 mb-4 text-center shadow-inner relative">
-                    <span className="text-4xl md:text-5xl font-bold uppercase tracking-widest text-[#5c2e16]">{currentSeason}</span>
+                    <span className="text-4xl md:text-5xl font-bold uppercase tracking-widest text-[#5c2e16]">
+                        {calendarMode === 'stardew' ? currentSeason : `${MONTHS[currentMonth]} ${currentYear}`}
+                    </span>
                   </div>
                   
                   <div className="bg-[#f7e5c8] border-4 border-[#431d11] rounded p-3 relative">
                     <div className="grid grid-cols-7 gap-1 text-center mb-2 border-b-4 border-[#431d11] pb-1">
                       {DAYS_OF_WEEK.map((day) => <div key={day} className="text-xl md:text-2xl font-bold text-[#8a4e28]">{day}</div>)}
                     </div>
-                    <div className="grid grid-cols-7 gap-2">
-                      {Array.from({ length: 28 }, (_, index) => {
-                        const day = index + 1;
-                        const dayEvent = calendarData[currentSeason]?.[day];
-                        const isSelected = selectedDay === day;
-                        return (
-                          <div key={day} onClick={() => handleDayClick(day)} className={`aspect-square relative cursor-pointer rounded border-2 transition-all p-1 flex flex-col items-center justify-center overflow-hidden ${isSelected ? 'border-yellow-500 bg-[#e7c793] ring-4 ring-yellow-400 scale-105 z-10' : 'border-[#431d11] bg-[#fcf1d8] hover:bg-[#ebd5b1]'}`}>
-                            <span className="absolute top-1 left-1.5 text-2xl md:text-3xl font-bold text-[#8a4e28] leading-none z-10">{day}</span>
-                            {dayEvent && (
-                              <div className="w-full h-full flex flex-col items-center justify-center pt-2 transform -translate-x-3 translate-y-1">
-                                <div 
-                                  className={`w-full h-full rounded flex flex-col items-center justify-center p-0.5 text-center overflow-hidden transition-all ${(!dayEvent.color || dayEvent.color === 'transparent') ? '' : 'border border-[#431d11]'}`}
-                                  style={{ 
-                                    backgroundColor: dayEvent.color || 'transparent',
-                                    transform: `rotate(${dayEvent.rotation || 0}deg) scaleX(${dayEvent.flip ? -1 : 1}) scale(${dayEvent.scale || 1}) translate(${dayEvent.offsetX || 0}px, ${dayEvent.offsetY || 0}px)`
-                                  }}
-                                  title={dayEvent.title}
-                                >
-                                  {dayEvent.type !== 'none' && dayEvent.image ? (
-                                    <div className="w-full h-full rounded flex items-center justify-center overflow-hidden shadow-sm shrink-0">
-                                      <img src={dayEvent.image} alt={dayEvent.title} className="w-full h-full object-cover" />
-                                    </div>
-                                  ) : (
-                                    <span className="text-sm sm:text-base md:text-xl leading-none drop-shadow-[0_1px_0_rgba(0,0,0,0.15)]">{dayEvent.icon || '⭐'}</span>
-                                  )}
+                    
+                    <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                        {/* Empty cells for Gregorian offset */}
+                        {calendarMode === 'gregorian' && Array.from({ length: firstDayOffset }).map((_, i) => (
+                            <div key={`empty-${i}`} className="aspect-square rounded border-2 border-[#431d11]/20 bg-[#fcf1d8]/50"></div>
+                        ))}
+
+                        {/* Calendar Days */}
+                        {Array.from({ length: calendarMode === 'stardew' ? 28 : daysInCurrentMonth }, (_, index) => {
+                          const day = index + 1;
+                          let dayEvent = null;
+                          if (calendarMode === 'stardew') {
+                              dayEvent = calendarData.stardew?.[currentSeason]?.[day];
+                          } else {
+                              const dateKey = `${currentYear}-${currentMonth + 1}-${day}`;
+                              dayEvent = calendarData.gregorian?.[dateKey];
+                          }
+
+                          const isSelected = selectedDay === day;
+                          
+                          // Highlight today if in gregorian mode and it matches
+                          const isToday = calendarMode === 'gregorian' && 
+                                          day === today.getDate() && 
+                                          currentMonth === today.getMonth() && 
+                                          currentYear === today.getFullYear();
+
+                          return (
+                            <div key={day} onClick={() => handleDayClick(day)} className={`aspect-square relative cursor-pointer rounded border-2 transition-all p-0.5 sm:p-1 flex flex-col items-center justify-center overflow-hidden ${isSelected ? 'border-yellow-500 bg-[#e7c793] ring-4 ring-yellow-400 scale-105 z-10' : isToday ? 'border-blue-500 bg-[#dbeafe] ring-2 ring-blue-300' : 'border-[#431d11] bg-[#fcf1d8] hover:bg-[#ebd5b1]'}`}>
+                              <span className={`absolute top-0.5 left-1 sm:top-1 sm:left-1.5 text-xl sm:text-2xl md:text-3xl font-bold ${isToday ? 'text-blue-800' : 'text-[#8a4e28]'} leading-none z-10`}>{day}</span>
+                              {dayEvent && (
+                                <div className="w-full h-full flex flex-col items-center justify-center pt-2 sm:pt-4 transform -translate-x-1 sm:-translate-x-3 translate-y-0 sm:translate-y-1">
+                                  <div 
+                                    className={`w-full h-full rounded flex flex-col items-center justify-center p-0.5 text-center overflow-hidden transition-all ${(!dayEvent.color || dayEvent.color === 'transparent') ? '' : 'border border-[#431d11]'}`}
+                                    style={{ 
+                                      backgroundColor: dayEvent.color || 'transparent',
+                                      transform: `rotate(${dayEvent.rotation || 0}deg) scaleX(${dayEvent.flip ? -1 : 1}) scale(${dayEvent.scale || 1}) translate(${dayEvent.offsetX || 0}px, ${dayEvent.offsetY || 0}px)`
+                                    }}
+                                    title={dayEvent.title}
+                                  >
+                                    {dayEvent.type !== 'none' && dayEvent.image ? (
+                                      <div className="w-full h-full rounded flex items-center justify-center overflow-hidden shadow-sm shrink-0">
+                                        <img src={dayEvent.image} alt={dayEvent.title} className="w-full h-full object-cover" />
+                                      </div>
+                                    ) : (
+                                      <span className="text-sm sm:text-base md:text-xl leading-none drop-shadow-[0_1px_0_rgba(0,0,0,0.15)]">{dayEvent.icon || '⭐'}</span>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                              )}
+                            </div>
+                          );
+                        })}
                     </div>
                   </div>
                 </div>
@@ -580,12 +721,11 @@
               <div>
                 <p className="font-bold text-xl mb-1 text-amber-200">💡 Anleitung & Tipps:</p>
                 <ul className="list-disc pl-5 space-y-1 text-amber-100/90 text-sm md:text-md">
-                  <li>Klicke auf einen Tag, um den **Editor als Fenster** zu öffnen.</li>
-                  <li>Deine Änderungen werden **sofort live gespeichert**.</li>
-                  <li>Nutze den "Menü" Button zum Exportieren oder Teilen.</li>
+                  <li>Wechsle oben zwischen dem Stardew- und dem Gregorianischen Modus.</li>
+                  <li>Klicke auf einen Tag, um Ereignisse hinzuzufügen.</li>
+                  <li>Der aktuelle Tag (Gregorianisch) wird blau hervorgehoben.</li>
                 </ul>
               </div>
-              <div className="text-center md:text-right text-[#c18d53] text-sm shrink-0">Inspiriert vom Spieldesign aus Stardew Valley von ConcernedApe.</div>
             </footer>
           </div>
         </div>
@@ -610,16 +750,14 @@
 =========================================
 CHANGELOG:
 ...
-v1.5.5 (Zwischenablage für JSON):
-- Button "JSON in Zwischenablage kopieren" im Import/Export-Modal hinzugefügt.
-
-v1.5.6 (Unicode-sicherer Seed):
-- Encodierung des Seeds für das Teilen per URL-Parameter wurde robust gestaltet (Unicode-Unterstützung).
-- Der geteilte Link funktioniert nun zuverlässig mit allen Emojis und Sonderzeichen.
-
 v1.5.7 (Menü-Reorganisation):
-- Schaltflächen "Import/Export", "Bild Exportieren" und "Zurücksetzen" in ein neues Untermenü verschoben.
-- UI-Layout für Übersichtlichkeit optimiert.
-- Responsives Menü-Design implementiert.
+- Schaltflächen in ein Untermenü verschoben.
+
+v1.6.0 (Gregorianischer Modus):
+- MAJOR Feature: Unterstützung für den realen Gregorianischen Kalender hinzugefügt.
+- Datenstruktur (calendarData) migriert auf { stardew: {}, gregorian: {} }, um beide Modi parallel zu speichern.
+- Toggle-Buttons zum Wechseln der Modi im Header hinzugefügt.
+- Dynamische Monatsberechnung (Schaltjahre, Wochentag-Verschiebung) für den Gregorianischen Kalender.
+- Hervorhebung des heutigen Tages im Gregorianischen Modus (blaue Markierung).
 =========================================
 -->
