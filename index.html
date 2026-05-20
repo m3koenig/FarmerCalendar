@@ -450,44 +450,6 @@
         document.body.removeChild(textArea);
       };
 
-      const handleCopyShare = () => {
-        try {
-            // Create a copy of calendarData without images to prevent URL length overflow
-            const dataToShare = JSON.parse(JSON.stringify(calendarData));
-            const stripImages = (obj) => {
-                for (let key in obj) {
-                    if (typeof obj[key] === 'object' && obj[key] !== null) {
-                        stripImages(obj[key]);
-                    } else if (key === 'image') {
-                        delete obj[key]; // Remove image data for share link
-                    }
-                }
-            };
-            stripImages(dataToShare);
-
-            const seed = btoa(unescape(encodeURIComponent(JSON.stringify(dataToShare))));
-            const shareUrl = window.location.origin + window.location.pathname + '?seed=' + seed;
-            
-            // Clipboard fallback for iFrame
-            const textArea = document.createElement("textarea");
-            textArea.value = shareUrl;
-            textArea.style.position = "fixed";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                document.execCommand('copy');
-                showToast('Link kopiert! (Bilder ausgenommen)');
-            } catch (err) {
-                showToast('Fehler beim Kopieren.');
-            }
-            document.body.removeChild(textArea);
-        } catch (e) {
-            showToast('Fehler beim Erstellen des Links.');
-            console.error(e);
-        }
-      };
-
       const handleImportJSON = () => {
         try {
           const parsed = JSON.parse(importData);
@@ -545,7 +507,6 @@
                  <div className="space-y-4 bg-[#fcf1d8] p-4 rounded border-2 border-[#431d11]">
                     <button onClick={handleDownloadJSON} className="w-full bg-[#9ccc65] p-2 rounded border-2 border-[#431d11] font-bold">JSON Datei Exportieren</button>
                     <button onClick={handleCopyJSON} className="w-full bg-[#9ccc65] p-2 rounded border-2 border-[#431d11] font-bold">JSON in Zwischenablage kopieren</button>
-                    <button onClick={handleCopyShare} className="w-full bg-[#e4a558] p-2 rounded border-2 border-[#431d11] font-bold">Link zum Teilen kopieren</button>
                     <hr className="border-[#431d11]" />
                     <textarea value={importData} onChange={(e) => setImportData(e.target.value)} className="w-full h-32 bg-[#f7e5c8] border-2 border-[#431d11] p-2" placeholder="Hier JSON einfügen..."></textarea>
                     <input type="file" onChange={handleFileUpload} className="w-full text-lg" />
@@ -903,5 +864,8 @@ v1.7.4 (Abbrechen-Funktion):
 
 v1.7.5 (Hotfix):
 - BUGFIX: Syntax-Fehler behoben (fehlendes schließendes div-Tag im Editor-Modal), der verhinderte, dass die Anwendung geladen werden konnte.
+
+v1.7.6 (Cleanup):
+- REMOVED: Funktion und UI-Button "Link zum Teilen kopieren" entfernt.
 =========================================
 -->
